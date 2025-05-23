@@ -10,6 +10,13 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import List, Tuple, Optional
+#
+#   brew install mozjpeg optipng pngquant zopfli webp gifsicle
+#   pip3 install tqdm
+#   python3 -m pip install tqdm
+#
+# ###
+
 
 # 配置常量
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff']
@@ -17,9 +24,10 @@ DEFAULT_BACKUP_DIR = '.image_backup'
 DEFAULT_LOG_FILE = 'compression.log'
 
 class ImageCompressor:
-    def __init__(self, backup_enabled=True, backup_dir=DEFAULT_BACKUP_DIR):
+    def __init__(self, backup_enabled=True, backup_dir=DEFAULT_BACKUP_DIR, force_no_backup_check=False):
         self.backup_enabled = backup_enabled
         self.backup_dir = backup_dir
+        self.force_no_backup_check = force_no_backup_check
         self.stats = {
             'total_files': 0,
             'processed': 0,
@@ -62,6 +70,10 @@ class ImageCompressor:
     
     def create_backup(self, file_path: str) -> bool:
         """创建文件备份"""
+        # 如果强制禁用备份检查，直接返回成功
+        if self.force_no_backup_check:
+            return True
+            
         if not self.backup_enabled:
             return True
         
@@ -308,6 +320,7 @@ class ImageCompressor:
             }, f, indent=2, ensure_ascii=False)
         print(f"详细统计已保存到: {stats_file}")
 
+# 在main函数中添加新参数
 def main():
     parser = argparse.ArgumentParser(
         description='高级图片批量压缩工具 - 支持多种格式和并行处理',
@@ -317,6 +330,7 @@ def main():
   %(prog)s /path/to/images --recursive --quality 80
   %(prog)s /path/to/images --no-backup --workers 8
   %(prog)s /path/to/images --formats jpg png --quality 90
+  %(prog)s /path/to/images --force-no-backup-check  # 完全跳过备份检查
         """
     )
     
@@ -336,6 +350,8 @@ def main():
                        help='指定要处理的图片格式')
     parser.add_argument('--dry-run', action='store_true',
                        help='预览模式，只显示将要处理的文件')
+    parser.add_argument('--force-no-backup-check', action='store_true',
+                       help='完全跳过备份检查，适用于处理不在当前目录的文件')
     
     args = parser.parse_args()
     
@@ -355,7 +371,8 @@ def main():
     # 创建压缩器
     compressor = ImageCompressor(
         backup_enabled=not args.no_backup,
-        backup_dir=args.backup_dir
+        backup_dir=args.backup_dir,
+        force_no_backup_check=args.force_no_backup_check
     )
     
     # 查找图片文件
@@ -400,3 +417,23 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
+
+
+
+# Basic usage with recursive directory scanning
+#python image_batch_compressor.py /path/to/images --recursive
+
+# Specify JPEG quality (1-100)
+#python image_batch_compressor.py /path/to/images --recursive --quality 80
+
+# Process without creating backups
+#python image_batch_compressor.py /path/to/images --no-backup
+
+# Use more worker threads for faster processing
+#python image_batch_compressor.py /path/to/images --workers 8
+
+# Only process specific image formats
+#python image_batch_compressor.py /path/to/images --formats jpg png
+
+# Preview mode (doesn't actually compress files)
+#python image_batch_compressor.py /path/to/images --dry-run
